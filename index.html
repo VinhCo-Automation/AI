@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quan Trắc Môi Trường bằng AI</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- LeafletJS for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Chart.js for Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0e1a;
+            color: #e0e0e0;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        .glassmorphism {
+            background: rgba(16, 22, 42, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glowing-border {
+            box-shadow: 0 0 5px rgba(0, 255, 255, 0.3), 0 0 10px rgba(0, 255, 255, 0.2), 0 0 15px rgba(0, 255, 255, 0.1);
+        }
+        .leaflet-container {
+            background: #10162a;
+        }
+        .leaflet-tile-pane {
+            filter: grayscale(1) invert(1) brightness(0.9) contrast(1.1);
+        }
+        .blinking-dot {
+            animation: blink 1.5s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .text-glow {
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
+        }
+        .status-ok { color: #22c55e; } /* green-500 */
+        .status-warning { color: #f59e0b; } /* amber-500 */
+        .status-danger { color: #ef4444; } /* red-500 */
+        /* Custom scrollbar for right column */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 255, 0.4);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 255, 0.6);
+        }
+        .modal-backdrop {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="p-4 lg:p-6">
+    <div class="flex flex-col h-screen max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)]">
+        <!-- Header -->
+        <header class="flex-shrink-0 mb-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl lg:text-3xl font-bold text-cyan-400 text-glow">HỆ THỐNG QUAN TRẮC MÔI TRƯỜNG THÔNG MINH</h1>
+                <p class="text-lg text-gray-300">Viện Công nghệ Sinh học và Môi trường</p>
+            </div>
+            <div id="clock" class="text-xl lg:text-2xl font-mono text-right"></div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 h-full overflow-hidden">
+            
+            <!-- Left Column: Map and Status -->
+            <div class="lg:col-span-2 flex flex-col gap-4 lg:gap-6 h-full">
+                <div class="glassmorphism rounded-xl p-4 flex-grow flex flex-col glowing-border">
+                    <h2 class="text-xl font-semibold mb-2 text-cyan-300">Bản đồ Giám sát Thời gian thực</h2>
+                    <div id="map" class="w-full h-full flex-grow rounded-lg"></div>
+                </div>
+                <div class="flex-shrink-0 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="glassmorphism rounded-xl p-4 text-center">
+                        <h3 class="text-sm font-medium text-gray-400">TRẠNG THÁI HỆ THỐNG</h3>
+                        <p class="text-2xl font-bold status-ok mt-1">ỔN ĐỊNH</p>
+                    </div>
+                    <div class="glassmorphism rounded-xl p-4 text-center">
+                        <h3 class="text-sm font-medium text-gray-400">ĐIỂM QUAN TRẮC</h3>
+                        <p class="text-2xl font-bold mt-1">4 / 4 <span class="text-base">Online</span></p>
+                    </div>
+                    <div class="glassmorphism rounded-xl p-4 text-center">
+                        <h3 class="text-sm font-medium text-gray-400">CẢNH BÁO GẦN ĐÂY</h3>
+                        <p class="text-2xl font-bold status-ok mt-1">0</p>
+                    </div>
+                    <div class="glassmorphism rounded-xl p-4 text-center">
+                        <h3 class="text-sm font-medium text-gray-400">NHIỆT ĐỘ TRUNG BÌNH</h3>
+                        <p class="text-2xl font-bold mt-1">31.5 °C</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: AI & Data -->
+            <div class="lg:col-span-1 flex flex-col gap-4 lg:gap-6 h-full overflow-y-auto custom-scrollbar pr-2">
+                <!-- AI Analysis -->
+                <div class="glassmorphism rounded-xl p-4 glowing-border">
+                    <h2 class="text-xl font-semibold mb-3 text-cyan-300">Phân tích & Dự báo bằng AI</h2>
+                    <div class="flex items-center gap-3 mb-3">
+                         <svg class="w-8 h-8 text-cyan-400 blinking-dot" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 6V3m0 18v-3m6-9h-2M6 12H3m6 6v-2m6-6h-2"></path></svg>
+                        <p id="ai-status" class="text-lg font-medium text-yellow-300"></p>
+                    </div>
+                    <div class="border-t border-gray-600 pt-3">
+                        <h3 class="font-semibold mb-2 text-gray-300">Đề xuất hành động:</h3>
+                        <p id="ai-recommendation" class="text-gray-400">Tất cả các chỉ số đều trong ngưỡng an toàn. Tiếp tục theo dõi.</p>
+                    </div>
+                    <div class="mt-4">
+                        <button id="generate-report-btn" class="w-full bg-cyan-600 hover:bg-cyan-500 rounded-lg p-3 font-bold transition-all duration-300 flex items-center justify-center space-x-2">
+                            <span class="text-yellow-300">✨</span>
+                            <span>Tạo Báo cáo Thông minh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Air Quality Radar Chart -->
+                <div class="glassmorphism rounded-xl p-4">
+                    <h2 class="text-xl font-semibold mb-2 text-cyan-300">Tổng quan Chất lượng Không khí</h2>
+                    <div class="h-64">
+                        <canvas id="airRadarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Water Quality Chart -->
+                <div class="glassmorphism rounded-xl p-4">
+                    <h2 class="text-xl font-semibold mb-2 text-cyan-300">Chất lượng Nước (Sông Sài Gòn)</h2>
+                     <div class="h-48">
+                        <canvas id="waterChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Noise Level Chart -->
+                <div class="glassmorphism rounded-xl p-4">
+                    <h2 class="text-xl font-semibold mb-2 text-cyan-300">Mức độ tiếng ồn (Khu dân cư)</h2>
+                    <div class="h-40">
+                        <canvas id="noiseChart"></canvas>
+                    </div>
+                </div>
+
+                 <!-- Alerts -->
+                <div class="glassmorphism rounded-xl p-4">
+                    <h2 class="text-xl font-semibold mb-3 text-cyan-300">Cảnh báo Tức thời</h2>
+                    <div id="alerts-container">
+                        <div class="p-3 rounded-lg bg-green-500/20 text-green-300">
+                            <p><span class="font-bold">[09:30]</span> Hệ thống hoạt động bình thường.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="report-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none modal-backdrop">
+        <div class="glassmorphism rounded-xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col modal-content scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-cyan-300">Báo cáo Môi trường Thông minh</h2>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div id="report-content" class="flex-grow overflow-y-auto custom-scrollbar pr-4">
+                <!-- Loading spinner -->
+                <div id="modal-loader" class="flex flex-col items-center justify-center h-full">
+                    <i class="fa-solid fa-spinner fa-spin fa-3x text-cyan-400"></i>
+                    <p class="mt-4 text-lg">AI đang tổng hợp báo cáo...</p>
+                </div>
+                <!-- Generated report will be inserted here -->
+                <div id="generated-report-text" class="prose prose-invert max-w-none"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- DOM Elements ---
+        const generateReportBtn = document.getElementById('generate-report-btn');
+        const reportModal = document.getElementById('report-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const modalLoader = document.getElementById('modal-loader');
+        const generatedReportText = document.getElementById('generated-report-text');
+
+        // --- CLOCK ---
+        function updateClock() {
+            const now = new Date();
+            const time = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const date = now.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('clock').innerHTML = `${time}<br><span class="text-sm">${date}</span>`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- MAP ---
+        const map = L.map('map', {
+            center: [10.8231, 106.6297], // Ho Chi Minh City
+            zoom: 11,
+            zoomControl: false,
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const locations = [
+            { name: "Khu Công nghệ cao", coords: [10.8455, 106.7943], status: "ok" },
+            { name: "KCN Tân Bình", coords: [10.8164, 106.6198], status: "ok" },
+            { name: "Cảng Cát Lái", coords: [10.7576, 106.7888], status: "warning" },
+            { name: "Sông Sài Gòn (Thảo Điền)", coords: [10.8015, 106.7321], status: "ok" },
+        ];
+        
+        const iconOk = L.divIcon({
+            className: 'custom-div-icon',
+            html: "<div class='w-4 h-4 bg-green-500 rounded-full border-2 border-white blinking-dot'></div>",
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+
+        const iconWarning = L.divIcon({
+            className: 'custom-div-icon',
+            html: "<div class='w-4 h-4 bg-yellow-500 rounded-full border-2 border-white blinking-dot'></div>",
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+
+        locations.forEach(loc => {
+            const icon = loc.status === 'ok' ? iconOk : iconWarning;
+            L.marker(loc.coords, { icon: icon })
+                .addTo(map)
+                .bindPopup(`<b>${loc.name}</b><br>Trạng thái: ${loc.status === 'ok' ? 'Tốt' : 'Cần chú ý'}.`);
+        });
+
+        // --- CHARTS ---
+        Chart.defaults.color = '#a0a0a0';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+
+        // Air Quality Radar Chart
+        const airRadarCtx = document.getElementById('airRadarChart').getContext('2d');
+        const airRadarChart = new Chart(airRadarCtx, {
+            type: 'radar',
+            data: {
+                labels: ['PM2.5', 'O3', 'NO2', 'SO2', 'CO'],
+                datasets: [{
+                    label: 'Nồng độ (µg/m³)',
+                    data: [48, 55, 30, 25, 40],
+                    fill: true,
+                    backgroundColor: 'rgba(6, 182, 212, 0.2)',
+                    borderColor: 'rgb(6, 182, 212)',
+                    pointBackgroundColor: 'rgb(6, 182, 212)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgb(6, 182, 212)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        pointLabels: { font: { size: 12 }, color: '#e0e0e0' },
+                        suggestedMin: 0,
+                        suggestedMax: 100
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Water Quality Chart
+        const waterCtx = document.getElementById('waterChart').getContext('2d');
+        const waterChart = new Chart(waterCtx, {
+            type: 'bar',
+            data: {
+                labels: ['pH', 'DO (mg/L)', 'TDS (ppm)', 'Độ đục (NTU)', 'Độ mặn (ppt)'],
+                datasets: [{
+                    label: 'Chỉ số đo được',
+                    data: [7.2, 6.8, 155, 25, 0.5],
+                    backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6', '#f97316', '#ec4899'],
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } }
+            }
+        });
+        
+        // Noise Level Chart
+        const noiseCtx = document.getElementById('noiseChart').getContext('2d');
+        const noiseChart = new Chart(noiseCtx, {
+            type: 'line',
+            data: {
+                labels: ['-60s', '-50s', '-40s', '-30s', '-20s', '-10s', 'Bây giờ'],
+                datasets: [{
+                    label: 'Decibels (dB)',
+                    data: [55, 58, 65, 62, 59, 70, 75],
+                    borderColor: '#f43f5e', // rose-500
+                    backgroundColor: 'rgba(244, 63, 94, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: false, min: 40, max: 100 }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // --- DYNAMIC DATA SIMULATION ---
+        setInterval(() => {
+            // Update Air Radar Chart
+            airRadarChart.data.datasets[0].data = [
+                Math.floor(Math.random() * 30) + 30, // PM2.5
+                Math.floor(Math.random() * 30) + 40, // O3
+                Math.floor(Math.random() * 20) + 20, // NO2
+                Math.floor(Math.random() * 20) + 15, // SO2
+                Math.floor(Math.random() * 25) + 25, // CO
+            ];
+            airRadarChart.update('none');
+
+            // Update Water Chart
+            waterChart.data.datasets[0].data = [
+                (Math.random() * 0.5 + 7.0).toFixed(1), // pH
+                (Math.random() * 1.0 + 6.5).toFixed(1), // DO
+                Math.floor(Math.random() * 20 + 140),   // TDS
+                Math.floor(Math.random() * 10 + 20),    // Turbidity
+                (Math.random() * 0.3 + 0.4).toFixed(1)  // Salinity
+            ];
+            waterChart.update('none');
+            
+            // Update Noise Chart
+            noiseChart.data.datasets[0].data.shift();
+            noiseChart.data.datasets[0].data.push(Math.floor(Math.random() * 30) + 50); // dB
+            noiseChart.update('none');
+
+        }, 3000);
+
+        // --- GEMINI API INTEGRATION ---
+        const apiKey = ""; // API key will be provided by the environment
+
+        async function callGemini(prompt) {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [{ text: prompt }]
+                }]
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                }
+                return "AI không thể tạo phản hồi vào lúc này.";
+            } catch (error) {
+                console.error("Gemini API call error:", error);
+                return "Lỗi kết nối đến AI. Vui lòng thử lại sau.";
+            }
+        }
+
+        // --- AI STATUS & RECOMMENDATION SIMULATION ---
+        const aiStatuses = [
+            "Đang quét dữ liệu từ 4 trạm quan trắc...",
+            "Phân tích mô hình dự báo thời tiết...",
+            "Đối chiếu dữ liệu lịch sử...",
+            "Phát hiện nồng độ PM2.5 tăng nhẹ tại Cảng Cát Lái.",
+            "AI đang tính toán mức độ ảnh hưởng...",
+            "Dự báo: Chất lượng không khí khu vực ổn định.",
+            "Tất cả hệ thống đang hoạt động tối ưu."
+        ];
+        let currentStatusIndex = 0;
+        const aiStatusElement = document.getElementById('ai-status');
+        const aiRecElement = document.getElementById('ai-recommendation');
+        const alertsContainer = document.getElementById('alerts-container');
+
+        setInterval(async () => {
+            currentStatusIndex = (currentStatusIndex + 1) % aiStatuses.length;
+            aiStatusElement.style.opacity = 0;
+            
+            const currentStatusText = aiStatuses[currentStatusIndex];
+
+            setTimeout(async () => {
+                aiStatusElement.textContent = currentStatusText;
+                aiStatusElement.style.opacity = 1;
+
+                // Trigger a special warning and get dynamic recommendation from Gemini
+                if (currentStatusText.includes("Phát hiện")) {
+                    aiRecElement.textContent = "AI đang phân tích để đưa ra đề xuất...";
+                    aiRecElement.classList.add('text-yellow-300');
+
+                    const prompt = `Bạn là một chuyên gia môi trường. Dữ liệu quan trắc cho thấy "nồng độ PM2.5 tăng nhẹ tại khu vực Cảng Cát Lái". Hãy đưa ra một đề xuất hành động ngắn gọn, chuyên nghiệp bằng tiếng Việt.`;
+                    const recommendation = await callGemini(prompt);
+                    aiRecElement.textContent = recommendation;
+                    
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'p-3 mt-2 rounded-lg bg-yellow-500/20 text-yellow-300 animate-pulse';
+                    alertDiv.innerHTML = `<p><span class="font-bold">[${new Date().toLocaleTimeString('vi-VN')}]</span> Cảnh báo: Nồng độ PM2.5 tăng tại Cảng Cát Lái.</p>`;
+                    if(alertsContainer.children.length > 2) {
+                        alertsContainer.removeChild(alertsContainer.lastChild);
+                    }
+                    alertsContainer.prepend(alertDiv);
+
+                } else if (currentStatusText.includes("Tất cả")) {
+                     aiRecElement.textContent = "Tất cả các chỉ số đều trong ngưỡng an toàn. Tiếp tục theo dõi.";
+                     aiRecElement.classList.remove('text-yellow-300');
+                }
+
+            }, 500); // fade transition
+        }, 5000);
+        aiStatusElement.textContent = aiStatuses[0];
+
+        // --- REPORT GENERATION ---
+        function openModal() {
+            reportModal.classList.remove('opacity-0', 'pointer-events-none');
+            reportModal.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0');
+        }
+
+        function closeModal() {
+            reportModal.classList.add('opacity-0', 'pointer-events-none');
+            reportModal.querySelector('.modal-content').classList.add('scale-95', 'opacity-0');
+        }
+
+        generateReportBtn.addEventListener('click', async () => {
+            openModal();
+            modalLoader.style.display = 'flex';
+            generatedReportText.innerHTML = '';
+
+            // 1. Gather data
+            const airData = airRadarChart.data.datasets[0].data;
+            const airLabels = airRadarChart.data.labels;
+            const waterData = waterChart.data.datasets[0].data;
+            const waterLabels = waterChart.data.labels;
+            const noiseData = noiseChart.data.datasets[0].data.slice(-1)[0]; // Get latest noise level
+
+            // 2. Build Prompt
+            const prompt = `Bạn là một AI chuyên gia về môi trường, đang viết một báo cáo nhanh cho Viện Công nghệ Sinh học và Môi trường. Dựa vào các dữ liệu sau:
+- Chất lượng không khí (µg/m³): ${airLabels.map((l, i) => `${l}: ${airData[i]}`).join(', ')}.
+- Chất lượng nước: ${waterLabels.map((l, i) => `${l}: ${waterData[i]}`).join(', ')}.
+- Mức độ tiếng ồn hiện tại: ${noiseData.toFixed(1)} dB.
+
+Hãy viết một báo cáo tổng quan ngắn gọn (khoảng 3-4 đoạn văn) bằng tiếng Việt, theo định dạng Markdown. Báo cáo cần có các phần:
+1.  **Tổng quan chung:** Nhận xét chung về tình hình môi trường.
+2.  **Phân tích Chi tiết:** Đi sâu vào từng mảng (không khí, nước, tiếng ồn), chỉ ra các điểm đáng chú ý.
+3.  **Kết luận và Đề xuất:** Tóm tắt lại và đưa ra đề xuất (nếu có).
+Sử dụng giọng văn chuyên nghiệp, khoa học nhưng dễ hiểu.`;
+
+            // 3. Call Gemini API
+            const reportText = await callGemini(prompt);
+            
+            // 4. Display result
+            modalLoader.style.display = 'none';
+            // Simple Markdown to HTML conversion
+            let htmlReport = reportText
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+                .replace(/\n/g, '<br>'); // Newlines
+            generatedReportText.innerHTML = htmlReport;
+        });
+
+        closeModalBtn.addEventListener('click', closeModal);
+        reportModal.addEventListener('click', (e) => {
+            if (e.target === reportModal) {
+                closeModal();
+            }
+        });
+
+    </script>
+</body>
+</html>

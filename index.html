@@ -107,11 +107,11 @@
                     </div>
                     <div class="glassmorphism rounded-xl p-4 text-center">
                         <h3 class="text-sm font-medium text-gray-400">ĐIỂM QUAN TRẮC</h3>
-                        <p class="text-2xl font-bold mt-1">4 / 4 <span class="text-base">Online</span></p>
+                        <p class="text-2xl font-bold mt-1">12 / 12 <span class="text-base">Online</span></p>
                     </div>
                     <div class="glassmorphism rounded-xl p-4 text-center">
                         <h3 class="text-sm font-medium text-gray-400">CẢNH BÁO GẦN ĐÂY</h3>
-                        <p class="text-2xl font-bold status-ok mt-1">0</p>
+                        <p id="warning-count" class="text-2xl font-bold status-warning mt-1">2</p>
                     </div>
                     <div class="glassmorphism rounded-xl p-4 text-center">
                         <h3 class="text-sm font-medium text-gray-400">NHIỆT ĐỘ TRUNG BÌNH</h3>
@@ -218,8 +218,8 @@
 
         // --- MAP ---
         const map = L.map('map', {
-            center: [10.8231, 106.6297], // Ho Chi Minh City
-            zoom: 11,
+            center: [10.7769, 106.7009], // Ho Chi Minh City Center
+            zoom: 10, // Adjusted zoom level to see more stations
             zoomControl: false,
         });
 
@@ -228,10 +228,20 @@
         }).addTo(map);
 
         const locations = [
+            // Original 4
             { name: "Khu Công nghệ cao", coords: [10.8455, 106.7943], status: "ok" },
             { name: "KCN Tân Bình", coords: [10.8164, 106.6198], status: "ok" },
             { name: "Cảng Cát Lái", coords: [10.7576, 106.7888], status: "warning" },
             { name: "Sông Sài Gòn (Thảo Điền)", coords: [10.8015, 106.7321], status: "ok" },
+            // New 8
+            { name: "KCN Hiệp Phước", coords: [10.6389, 106.7175], status: "ok" },
+            { name: "Ngã sáu Phù Đổng", coords: [10.7725, 106.6943], status: "warning" },
+            { name: "KDC Phú Mỹ Hưng", coords: [10.7295, 106.7155], status: "ok" },
+            { name: "Sân bay Tân Sơn Nhất", coords: [10.8193, 106.6588], status: "ok" },
+            { name: "ĐH Quốc gia TPHCM", coords: [10.8795, 106.8048], status: "ok" },
+            { name: "Bến xe Miền Đông mới", coords: [10.8687, 106.7981], status: "ok" },
+            { name: "KCN Vĩnh Lộc", coords: [10.8189, 106.5755], status: "danger" },
+            { name: "KDC Cần Giờ", coords: [10.5511, 106.8855], status: "ok" },
         ];
         
         const iconOk = L.divIcon({
@@ -247,13 +257,37 @@
             iconSize: [16, 16],
             iconAnchor: [8, 8]
         });
-
+        
+        const iconDanger = L.divIcon({
+            className: 'custom-div-icon',
+            html: "<div class='w-4 h-4 bg-red-500 rounded-full border-2 border-white blinking-dot'></div>",
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+        
+        let warningCount = 0;
         locations.forEach(loc => {
-            const icon = loc.status === 'ok' ? iconOk : iconWarning;
+            let icon;
+            let statusText;
+            if (loc.status === 'ok') {
+                icon = iconOk;
+                statusText = 'Tốt';
+            } else if (loc.status === 'warning') {
+                icon = iconWarning;
+                statusText = 'Cần chú ý';
+                warningCount++;
+            } else {
+                icon = iconDanger;
+                statusText = 'Nguy hiểm';
+                warningCount++;
+            }
             L.marker(loc.coords, { icon: icon })
                 .addTo(map)
-                .bindPopup(`<b>${loc.name}</b><br>Trạng thái: ${loc.status === 'ok' ? 'Tốt' : 'Cần chú ý'}.`);
+                .bindPopup(`<b>${loc.name}</b><br>Trạng thái: ${statusText}.`);
         });
+        
+        document.getElementById('warning-count').textContent = warningCount;
+
 
         // --- CHARTS ---
         Chart.defaults.color = '#a0a0a0';
@@ -404,10 +438,10 @@
 
         // --- AI STATUS & RECOMMENDATION SIMULATION ---
         const aiStatuses = [
-            "Đang quét dữ liệu từ 4 trạm quan trắc...",
+            "Đang quét dữ liệu từ 12 trạm quan trắc...",
             "Phân tích mô hình dự báo thời tiết...",
             "Đối chiếu dữ liệu lịch sử...",
-            "Phát hiện nồng độ PM2.5 tăng nhẹ tại Cảng Cát Lái.",
+            "Phát hiện nồng độ NO2 tăng cao tại KCN Vĩnh Lộc.",
             "AI đang tính toán mức độ ảnh hưởng...",
             "Dự báo: Chất lượng không khí khu vực ổn định.",
             "Tất cả hệ thống đang hoạt động tối ưu."
@@ -419,10 +453,9 @@
 
         setInterval(async () => {
             currentStatusIndex = (currentStatusIndex + 1) % aiStatuses.length;
-            aiStatusElement.style.opacity = 0;
-            
             const currentStatusText = aiStatuses[currentStatusIndex];
 
+            aiStatusElement.style.opacity = 0;
             setTimeout(async () => {
                 aiStatusElement.textContent = currentStatusText;
                 aiStatusElement.style.opacity = 1;
@@ -430,15 +463,15 @@
                 // Trigger a special warning and get dynamic recommendation from Gemini
                 if (currentStatusText.includes("Phát hiện")) {
                     aiRecElement.textContent = "AI đang phân tích để đưa ra đề xuất...";
-                    aiRecElement.classList.add('text-yellow-300');
+                    aiRecElement.classList.add('text-red-400');
 
-                    const prompt = `Bạn là một chuyên gia môi trường. Dữ liệu quan trắc cho thấy "nồng độ PM2.5 tăng nhẹ tại khu vực Cảng Cát Lái". Hãy đưa ra một đề xuất hành động ngắn gọn, chuyên nghiệp bằng tiếng Việt.`;
+                    const prompt = `Bạn là một chuyên gia môi trường. Dữ liệu quan trắc cho thấy "nồng độ khí NO2 tăng cao tại khu vực KCN Vĩnh Lộc". Hãy đưa ra một đề xuất hành động ngắn gọn, chuyên nghiệp bằng tiếng Việt.`;
                     const recommendation = await callGemini(prompt);
                     aiRecElement.textContent = recommendation;
                     
                     const alertDiv = document.createElement('div');
-                    alertDiv.className = 'p-3 mt-2 rounded-lg bg-yellow-500/20 text-yellow-300 animate-pulse';
-                    alertDiv.innerHTML = `<p><span class="font-bold">[${new Date().toLocaleTimeString('vi-VN')}]</span> Cảnh báo: Nồng độ PM2.5 tăng tại Cảng Cát Lái.</p>`;
+                    alertDiv.className = 'p-3 mt-2 rounded-lg bg-red-500/20 text-red-300 animate-pulse';
+                    alertDiv.innerHTML = `<p><span class="font-bold">[${new Date().toLocaleTimeString('vi-VN')}]</span> Cảnh báo: Nồng độ NO2 tăng cao tại KCN Vĩnh Lộc.</p>`;
                     if(alertsContainer.children.length > 2) {
                         alertsContainer.removeChild(alertsContainer.lastChild);
                     }
@@ -446,7 +479,7 @@
 
                 } else if (currentStatusText.includes("Tất cả")) {
                      aiRecElement.textContent = "Tất cả các chỉ số đều trong ngưỡng an toàn. Tiếp tục theo dõi.";
-                     aiRecElement.classList.remove('text-yellow-300');
+                     aiRecElement.classList.remove('text-red-400', 'text-yellow-300');
                 }
 
             }, 500); // fade transition
